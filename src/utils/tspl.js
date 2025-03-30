@@ -1,4 +1,4 @@
-import iconv from 'iconv-lite'
+import {encode} from 'iconv-lite'
 
 class TSPL {
   /**
@@ -17,11 +17,11 @@ class TSPL {
    * @returns {TSPL}
    */
   addCommand(content) {
-    const code = iconv.encode(content + '\r\n', 'gb18030')
+    const code = encode(`${content}\r\n`, 'gb18030')
     for (let i = 0; i < code.length; ++i) {
       this.command.push(code[i])
     }
-    this.rawCommand += content + '\r\n'
+    this.rawCommand += `${content}\r\n`
     return this
   }
 
@@ -31,7 +31,7 @@ class TSPL {
    * @returns {TSPL}
    */
   addCommandWithoutEnter(content) {
-    const code = iconv.encode(content, 'gb18030')
+    const code = encode(content, 'gb18030')
     for (let i = 0; i < code.length; ++i) {
       this.command.push(code[i])
     }

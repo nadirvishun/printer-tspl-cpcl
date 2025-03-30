@@ -66,13 +66,13 @@ onMounted(async () => {
   //绘制图片
   const {width, height, path} = await getImageInfo(logo);
   console.log(width, height, path);
-  //小程序中返回的不带/，会导致无法加载
-  let formatPath = path.startsWith('/') ? path : `/${path}`;
+  //小程序中返回的不带/，会导致无法加载，而安卓的前缀是file:///storage/emulated/0/xxx
+  let formatPath = path.startsWith('file') ? path : `/${path}`;
   canvasWidth.value = width;
   canvasHeight.value = height;
   const ctx = uni.createCanvasContext('hiddenCanvas');
   ctx.drawImage(formatPath, 0, 0, width, height);
-  ctx.draw(true, async () => {
+  ctx.draw(false, async () => {
     //获取信息
     imageData.value = await getImageData('hiddenCanvas', width, height);
     console.log(imageData.value);
