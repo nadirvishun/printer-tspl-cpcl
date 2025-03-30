@@ -1,12 +1,6 @@
 import iconv from 'iconv-lite'
 
 class CPCL {
-  constructor({maxWidth = 540, size = 24} = {}) {
-    this.position = 0
-    this.maxWidth = maxWidth
-    this.size = size
-  }
-
   /**
    * 通用命令
    * @param {string} content
