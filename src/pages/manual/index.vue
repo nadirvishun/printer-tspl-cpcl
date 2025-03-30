@@ -2,6 +2,9 @@
   <view class="m-4">
     <view class="text-center">
       <view class="mt-2">
+        <wd-button type="success" @click="handleInit">初始化</wd-button>
+      </view>
+      <view class="mt-2">
         <wd-button type="success" @click="search">搜索蓝牙</wd-button>
       </view>
       <view class="mt-2">
@@ -27,8 +30,8 @@
 
 <script setup>
 import {onUnmounted, ref} from 'vue'
-import commonConst from "@/constants/commonConst";
 import {
+  checkInit,
   closeAdapter,
   closeConnect,
   connect,
@@ -46,13 +49,11 @@ const deviceId = ref('')
 
 //发现监听执行回调
 const foundListener = (res) => {
-  //如果找到此名称，则自动连接
-  console.log(res)
-  if (res.devices[0].name === commonConst.bluetoothConfig.deviceName) {
-    let deviceIds = deviceList.value.map(e => e.deviceId);
-    if (!deviceIds.includes(res.devices[0].deviceId)) {
-      deviceList.value.push(res.devices[0])
-    }
+  let deviceIds = deviceList.value.map(e => e.deviceId);
+  if (!deviceIds.includes(res.devices[0].deviceId)) {
+    deviceList.value.push(res.devices[0])
+    //从中可以获取到蓝牙名称和广播ID
+    console.log(res.devices);
   }
 }
 
@@ -77,8 +78,6 @@ const connectListener = (res) => {
 }
 
 onLoad(() => {
-  //初始化
-  init()
   //开启连接监听
   onConnect(connectListener);
   //开启搜索监听
@@ -95,6 +94,27 @@ onUnmounted(async () => {
   }
   await closeAdapter();
 })
+
+//初始化
+async function handleInit() {
+  try {
+    await checkInit();
+  } catch (e) {
+    try {
+      await init();
+    } catch (e) {
+      uni.showToast({
+        title: "初始化失败，请打开手机的【蓝牙】开关和【定位】开关后重试",
+        icon: "none",
+      })
+      return;
+    }
+  }
+  uni.showToast({
+    title: "初始化成功",
+    icon: "none",
+  })
+}
 
 //开始搜索(包含新的和已有的)
 function search() {
@@ -167,6 +187,10 @@ async function handleServices() {
     console.log(`服务${i}：${JSON.stringify(data)}`)
     i++;
   }
+  uni.showToast({
+    title: "获取服务和特征值成功，请去日志中查看",
+    icon: "none",
+  })
 }
 
 
