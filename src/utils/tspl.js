@@ -76,7 +76,7 @@ class TSPL {
    * @param {int} level
    * @returns {TSPL}
    */
-  setDensity(level) {
+  density(level) {
     this.addCommand(`DENSITY ${level}`)
     return this
   };
@@ -149,7 +149,7 @@ class TSPL {
    * @param {int} length 1≤n≤9999，单位 dot
    * @returns {TSPL}
    */
-  setBackFeed(length) {
+  backFeed(length) {
     this.addCommand(`BACKFEED ${length}`)
     return this
   }
@@ -160,7 +160,7 @@ class TSPL {
    * @param {int} m 0或1 出纸方向
    * @param {int} n 0或1 打印字体方向 0正常，1镜像
    */
-  setDirection(m, n) {
+  direction(m, n) {
     this.addCommand(`DIRECTION ${m},${n}`)
     return this
   };

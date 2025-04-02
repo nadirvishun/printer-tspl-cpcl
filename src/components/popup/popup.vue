@@ -119,7 +119,7 @@ async function tsplPrint() {
       .cls()
       .text(10, 10, "TSS24.BF2", 1, 1, "打印测试文本") // 文本
       .qrcode(40, 50, "L", 5, "A", "www.poscom.cn") // 二维码
-      .barcode(10, 180, "128", 64, 1, 2, 4, "200902125410") // 二维码
+      .barcode(10, 180, "128", 64, 1, 2, 4, "200902125410") // 条形码
       .bitmap(10, 250, 0, imageData.value)
       .box(10, 500, 500, 1000)
       .print()
