@@ -184,9 +184,9 @@ async function handleServices() {
       serviceId: item.uuid,
       characteristics: charaData
     })
-    console.log(`服务${i}：${JSON.stringify(data)}`)
     i++;
   }
+  console.log(`服务：${JSON.stringify(data)}`)
   uni.showToast({
     title: "获取服务和特征值成功，请去日志中查看",
     icon: "none",
