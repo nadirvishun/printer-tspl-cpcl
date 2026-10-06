@@ -134,7 +134,6 @@ async function cpclPrint() {
       .left()
       .qrcode(0, 100, 2, 8, 'M', "测试二维码")
       .bitmap(0, 200, imageData.value)
-      // .bitmap2(250, 50, imageData.value)
       .print()
   const sendData = command.getData();
   console.log(command.getRawData())
@@ -144,7 +143,7 @@ async function cpclPrint() {
 
 <template>
   <view class="content">
-    <wd-radio-group v-model="type" shape="button" inline size="large">
+    <wd-radio-group v-model="type" type="button" direction="horizontal">
       <wd-radio value="tspl">TSPL</wd-radio>
       <wd-radio value="cpcl">CPCL</wd-radio>
     </wd-radio-group>

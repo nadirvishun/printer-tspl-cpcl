@@ -149,7 +149,7 @@ function cpclPrint() {
 <template>
   <wd-popup v-model="model" closable :close-on-click-modal="false" @after-enter="loadImage">
     <view class="custom-txt">
-      <wd-radio-group v-model="type" shape="button" inline size="large">
+      <wd-radio-group v-model="type" type="button" direction="horizontal">
         <wd-radio value="tspl">TSPL</wd-radio>
         <wd-radio value="cpcl">CPCL</wd-radio>
       </wd-radio-group>

@@ -7,5 +7,13 @@ export default defineConfig({
     uni(),
     nodePolyfills()//为了引用iconv-lite
   ],
-  assetsInclude:['**/*.bmp']
+  assetsInclude:['**/*.bmp'],
+  css: {
+    preprocessorOptions: {
+      scss: {
+        api: 'modern-compiler',
+        silenceDeprecations: ['legacy-js-api']
+      }
+    }
+  }
 })

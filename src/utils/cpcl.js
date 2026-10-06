@@ -302,77 +302,44 @@ class CPCL {
    * @returns {CPCL}
    */
   bitmap(x, y, res) {
+    // 每行字节数 = ceil(宽度 / 8)，CG 头里的宽度单位是字节，不是点
     const width = parseInt((res.width + 7) / 8 * 8 / 8)
     const height = res.height
     const w = res.width
-    const pointList = []
     const resultData = []
     this.addCommandWithoutEnter(`CG ${width} ${height} ${x} ${y}`)
-    //for循环顺序不要错了，外层遍历高度，内层遍历宽度，因为横向每8个像素点组成一个字节
+    //for循环顺序不要错了，外层遍历高度，内层遍历该行的字节，因为横向每8个像素点组成一个字节
+    //每行都要按 width*8 位重新对齐：宽度不是8的倍数时，行尾多出的补位像素不打印(1)。
+    //否则比特位会在行与行之间累积错位(图像斜切)，且总字节数少于头部声明的 width*height，
+    //打印机就会把后面的命令当成图像数据吃掉
     for (let y = 0; y < height; y++) {
-      for (let x = 0; x < w; x++) {
-        let r = res.data[(y * w + x) * 4];
-        let g = res.data[(y * w + x) * 4 + 1];
-        let b = res.data[(y * w + x) * 4 + 2];
-        // 像素灰度值
-        let grayColor = r * 0.299 + g * 0.587 + b * 0.114
-        //灰度值大于128位
-        //1不打印, 0打印 （参考：佳博标签打印机编程手册tspl）
-        if (grayColor > 128) {
-          pointList.push(1)
-        } else {
-          pointList.push(0)
+      for (let i = 0; i < width; i++) {
+        let p = 0
+        for (let j = 0; j < 8; j++) {
+          const x = i * 8 + j
+          //1不打印, 0打印
+          let bit = 1
+          if (x < w) {
+            const index = (y * w + x) * 4
+            // 透明像素按白纸合成：c = c*a + 255*(1-a)。a=255（不透明）时结果不变，
+            // a=0（全透明）合成后为白（不打印）；否则PNG的透明背景会被当成黑色整块印出来
+            const alpha = res.data[index + 3] / 255
+            const r = res.data[index] * alpha + 255 * (1 - alpha)
+            const g = res.data[index + 1] * alpha + 255 * (1 - alpha)
+            const b = res.data[index + 2] * alpha + 255 * (1 - alpha)
+            // 像素灰度值，灰度值大于128不打印
+            const grayColor = r * 0.299 + g * 0.587 + b * 0.114
+            bit = grayColor > 128 ? 1 : 0
+          }
+          p = (p << 1) | bit
         }
+        resultData.push(p)
       }
-    }
-    for (let i = 0; i < pointList.length; i += 8) {
-      let p = pointList[i] * 128
-          + pointList[i + 1] * 64
-          + pointList[i + 2] * 32
-          + pointList[i + 3] * 16
-          + pointList[i + 4] * 8
-          + pointList[i + 5] * 4
-          + pointList[i + 6] * 2
-          + pointList[i + 7]
-      resultData.push(p)
     }
     for (let i = 0; i < resultData.length; ++i) {
-      //与tspl不一样，测试cpcl打印的图像是反转的，所以要用~来转回来
+      //与tspl不一样，cpcl打印的图像是相反的，所以要用~来转回来
       const invertedByte = ~resultData[i] & 0xff;
-      this.command.push(this.intToByte(invertedByte))
-    }
-    return this;
-  }
-
-  /**
-   * 打印位图
-   * @param {int} x 横向起始位置
-   * @param {int} y 纵向起始位置
-   * @param {object} res 内容
-   * @returns {CPCL}
-   */
-  bitmap2(x, y, res) {
-    const w = res.width
-    const width = parseInt((res.width + 7) / 8 * 8 / 8)
-    const height = res.height;
-    this.addCommandWithoutEnter(`CG ${width} ${height} ${x} ${y}`)
-    const bits = new Uint8Array(height * width);
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < w; x++) {
-        let r = res.data[(y * w + x) * 4];
-        let g = res.data[(y * w + x) * 4 + 1];
-        let b = res.data[(y * w + x) * 4 + 2];
-        let a = res.data[(y * w + x) * 4 + 3]
-        const color = ((a & 0xFF) << 24) | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | ((b & 0xFF) <<
-            0);
-        if ((color & 0xFF) > 128) {
-          bits[parseInt(y * width + x / 8)] |= (0x80 >> (x % 8));
-        }
-      }
-    }
-    for (let i = 0; i < bits.length; i++) {
-      //与tspl不一样，测试cpcl打印的图像是反转的，所以要用~来转回来
-      this.command.push(this.intToByte(~bits[i]))
+      this.command.push(invertedByte)
     }
     return this;
   }
@@ -403,30 +370,16 @@ class CPCL {
   }
 
   /**
-   * int转byte
+   * int转有符号byte（当前未被调用，保留作参考）
+   * 只有把命令数组直接交给原生安卓插件时才需要：那种接口要传 byte[]，取值必须是
+   * java 的有符号字节 -128~127。本项目走的是 batchWrite -> ArrayBuffer，交给
+   * uni.writeBLECharacteristicValue 的始终是无符号字节，所以位图数据直接 push 0-255 即可。
    * @param {int} i
-   * @returns {*|number}
+   * @returns {number}
    */
   intToByte(i) {
-    // 此处关键 -- android是java平台 byte数值范围是 [-128, 127]
-    // 因为java平台的byte类型是有符号的 最高位表示符号，所以数值范围固定
-    // 而图片计算出来的是数值是 0 -255 属于int类型
-    // 所以把int 转换成byte类型
-    //#ifdef APP-PLUS
-    let b = i & 0xFF;
-    let c = 0;
-    if (b >= 128) {
-      c = b % 128;
-      c = -1 * (128 - c);
-    } else {
-      c = b;
-    }
-    return c
-    //#endif
-    // 而微信小程序不需要，因为小程序api接收的是 无符号8位
-    //#ifdef MP-WEIXIN
-    return i
-    //#endif
+    const b = i & 0xFF
+    return b >= 128 ? b - 256 : b
   }
 }
 

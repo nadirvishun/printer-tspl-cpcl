@@ -18,7 +18,7 @@
       </view>
     </view>
 
-    <wd-divider custom-class="my-2" color="#4D80F0"></wd-divider>
+    <wd-divider color="#4D80F0"></wd-divider>
 
     <wd-cell-group title="列表" v-if="deviceList.length>0">
       <wd-cell :title="item.name" :label="item.deviceId" value="连接" is-link @click="handleConnect(item.deviceId)"

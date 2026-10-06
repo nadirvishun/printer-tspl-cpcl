@@ -1,7 +1,7 @@
 <template>
   <view class="content">
     <wd-divider>全局蓝牙</wd-divider>
-    <wd-button v-for="item in list" @click="handlePop">
+    <wd-button v-for="(item,index) in list" :key="index" style="margin-right:8px" @click="handlePop">
       {{ item }}
     </wd-button>
     <wd-divider>单独页面蓝牙</wd-divider>
@@ -31,8 +31,7 @@ function handleSingle() {
 
 function handleManual() {
   uni.navigateTo({
-    url: "/pages/manual" +
-        "/index"
+    url: "/pages/manual/index"
   })
 }
 </script>

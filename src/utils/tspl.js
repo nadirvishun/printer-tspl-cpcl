@@ -155,13 +155,16 @@ class TSPL {
   }
 
   /**
-   * 设置打印方向
+   * 设置打印机的打印方向及是否镜像（该设置会保存在打印机内存里）
+   * 语法按手册是 DIRECTION n[,m]：n 是打印方向、m 是镜像；注意佳博的TSPL手册只写了 n（没有镜像参数）
+   * @param {int} n 打印方向：0或1，见手册示意图
+   * @param {int} [m] 镜像：0正常，1镜像；不传就不拼进命令（手册范例就是 DIRECTION 0）
    * @returns {TSPL}
-   * @param {int} m 0或1 出纸方向
-   * @param {int} n 0或1 打印字体方向 0正常，1镜像
    */
-  direction(m, n) {
-    this.addCommand(`DIRECTION ${m},${n}`)
+  direction(n, m) {
+    //m是可选参数，不传就不拼进命令，不替调用方补默认值
+    const opt = m === undefined ? '' : `,${m}`
+    this.addCommand(`DIRECTION ${n}${opt}`)
     return this
   };
 
@@ -208,22 +211,56 @@ class TSPL {
 
   /**
    * 若经过所设定的长度仍无法侦测到垂直间距，则打印机在连续纸模式工作(毫米)
-   * @param {int} limit
+   * 三种单位形式共用这一份模板，limitFeedMm/limitFeedInch/limitFeedDot 只是换单位后缀委托进来
+   * @param {int} n 最小的纸张侦测长度
+   * @param {int} [minpaper] 最小的纸张大小，用于侦测预印好的标签；须与maxgap成对给，此参数仅V6.98.7 EZ之后的版本支持
+   * @param {int} [maxgap] 最大的间隙大小；须与minpaper成对给，此参数仅V6.98.7 EZ之后的版本支持
+   * @param {string} [unit] 内部用、别直接传：单位后缀 ''(英制inch) / ' mm' / ' dot'，默认 ' mm'
    * @returns {TSPL}
    */
-  limitFeed(limit) {
-    this.addCommand(`LIMITFEED ${limit} mm`)
+  limitFeed(n, minpaper, maxgap, unit = ' mm') {
+    const hasRange = minpaper !== undefined || maxgap !== undefined
+    if (hasRange && (minpaper === undefined || maxgap === undefined)) {
+      //手册没给这两个参数单独的默认值，只给一个时没法替调用方补另一个，所以报错而不是静默丢掉
+      throw new Error('LIMITFEED 的 minpaper 与 maxgap 必须成对传，或者都不传')
+    }
+    const range = hasRange ? `,${minpaper}${unit},${maxgap}${unit}` : ''
+    this.addCommand(`LIMITFEED ${n}${unit}${range}`)
     return this
   };
 
   /**
    * 若经过所设定的长度仍无法侦测到垂直间距，则打印机在连续纸模式工作(英寸)
-   * @param {int} limit
+   * @param {int} n 最小的纸张侦测长度
+   * @param {int} [minpaper] 最小的纸张大小，用于侦测预印好的标签；须与maxgap成对给，此参数仅V6.98.7 EZ之后的版本支持
+   * @param {int} [maxgap] 最大的间隙大小；须与minpaper成对给，此参数仅V6.98.7 EZ之后的版本支持
    * @returns {TSPL}
    */
-  limitFeedInch(limit) {
-    this.addCommand(`LIMITFEED ${limit}`)
-    return this
+  limitFeedInch(n, minpaper, maxgap) {
+    return this.limitFeed(n, minpaper, maxgap, '')
+  };
+
+  /**
+   * 同上，公制(mm)：LIMITFEED n mm[,...]
+   * @param {int} n 最小的纸张侦测长度
+   * @param {int} [minpaper] 最小的纸张大小，用于侦测预印好的标签；须与maxgap成对给，此参数仅V6.98.7 EZ之后的版本支持
+   * @param {int} [maxgap] 最大的间隙大小；须与minpaper成对给，此参数仅V6.98.7 EZ之后的版本支持
+   * @returns {TSPL}
+   */
+  limitFeedMm(n, minpaper, maxgap) {
+    return this.limitFeed(n, minpaper, maxgap, ' mm')
+  };
+
+  /**
+   * 若经过所设定的长度仍无法侦测到垂直间距，则打印机在连续纸模式工作(以dot为单位)
+   * 此条指令仅在V6.34及以后版本Firmware中支持
+   * @param {int} n 最小的纸张侦测长度
+   * @param {int} [minpaper] 最小的纸张大小，用于侦测预印好的标签；须与maxgap成对给，此参数仅V6.98.7 EZ之后的版本支持
+   * @param {int} [maxgap] 最大的间隙大小；须与minpaper成对给，此参数仅V6.98.7 EZ之后的版本支持
+   * @returns {TSPL}
+   */
+  limitFeedDot(n, minpaper, maxgap) {
+    return this.limitFeed(n, minpaper, maxgap, ' dot')
   };
 
   /**
@@ -232,6 +269,7 @@ class TSPL {
    * @param {int} y 起始y轴坐标 单位 dot
    * @param {int} width 线条长度 单位 dot
    * @param {int} height 线条高度 单位 dot
+   * @returns {TSPL}
    */
   bar(x, y, width, height) {
     this.addCommand(`BAR ${x},${y},${width},${height}`)
@@ -245,9 +283,13 @@ class TSPL {
    * @param {int} endX  方框右下角x轴坐标 单位 dot
    * @param {int} endY  方框右下角y轴坐标 单位 dot
    * @param {int} thickness 方框线宽 单位 dot
+   * @param {int} [radius] 圆角半径（0就是直角），不传就不拼进命令；此参数仅V5.28EZ之后的版本支持
+   * @returns {TSPL}
    */
-  box(startX, startY, endX, endY, thickness) {
-    this.addCommand(`BOX ${startX},${startY},${endX},${endY},${thickness}`)
+  box(startX, startY, endX, endY, thickness, radius) {
+    //radius是可选参数，不传就不拼进命令，不替调用方补默认值
+    const opt = radius === undefined ? '' : `,${radius}`
+    this.addCommand(`BOX ${startX},${startY},${endX},${endY},${thickness}${opt}`)
     return this
   };
 
@@ -284,12 +326,12 @@ class TSPL {
    * @param {int|string} font 字体名称
    * @param {int} zoomX X 方向放大倍率 1-10
    * @param {int} zoomY Y 方向放大倍率 1-10
-   * @param {string} data 文字内容
+   * @param {string} data 文字内容（包含 " 等特殊符号需要转义，见 TSPL.escape()；库不做转义）
+   * @param {int} [alignment] 对齐：0默认(居左)/1居左/2居中/3居右（V6.73EZ后才支持，不传就不拼进命令）
    * @returns {TSPL}
    */
-  text(x, y, font, zoomX, zoomY, data) { //打印文字
-    this.addCommand(`TEXT ${x},${y},"${font}",0,${zoomX},${zoomY},"${data}"`)
-    return this
+  text(x, y, font, zoomX, zoomY, data, alignment) { //打印文字
+    return this.textRotation(x, y, font, 0, zoomX, zoomY, data, alignment)
   };
 
   /**
@@ -300,11 +342,41 @@ class TSPL {
    * @param {int} rotation 文字旋转角度（顺时针方向）
    * @param {int} zoomX X 方向放大倍率 1-10
    * @param {int} zoomY Y 方向放大倍率 1-10
-   * @param {string} data 文字内容
+   * @param {string} data 文字内容（包含 " 等特殊符号需要转义，见 TSPL.escape()；库不做转义）
+   * @param {int} [alignment] 对齐：0默认(居左)/1居左/2居中/3居右（V6.73EZ后才支持，不传就不拼进命令）
    * @returns {TSPL}
    */
-  textRotation(x, y, font, rotation, zoomX, zoomY, data) { //打印文字
-    this.addCommand(`TEXT ${x},${y},"${font}",${rotation},${zoomX},${zoomY},"${data}"`)
+  textRotation(x, y, font, rotation, zoomX, zoomY, data, alignment) { //打印文字
+    //alignment是可选的位置参数（在content之前），不传就不拼进命令
+    const opt = alignment === undefined ? '' : `,${alignment}`
+    this.addCommand(`TEXT ${x},${y},"${font}",${rotation},${zoomX},${zoomY}${opt},"${data}"`)
+    return this
+  };
+
+  /**
+   * 打印段落（在指定区域内自动换行，可设对齐）
+   * 注意：BLOCK 是 TSPL2 才有的指令（TSPL2手册第76页；据该手册的 Update History，它是2012/11/21 才加入TSPL2的），
+   * 只支持TSPL2的机器才能用；TSPL1（以及只认TSPL的机器）没有这条指令。
+   * @param {int} x 段落左上角X坐标
+   * @param {int} y 段落左上角Y坐标
+   * @param {int} width 段落宽度，单位dot
+   * @param {int} height 段落高度，单位dot
+   * @param {int|string} font 字体名称
+   * @param {int} rotation 旋转角度（顺时针方向）
+   * @param {int} zoomX X方向放大倍率1-10
+   * @param {int} zoomY Y方向放大倍率1-10
+   * @param {string} data 段落内容（包含 " 等特殊符号需要转义，见 TSPL.escape()；库不做转义）
+   * @param {int} [space] 在每一行中间添加或删除空格，单位dot（行距微调）
+   * @param {int} [alignment] 对齐：0默认(居左)/1居左/2居中/3居右（V6.73EZ后才支持，与text的该参数一样；只给这个时会自动补 space=0）
+   * @returns {TSPL}
+   */
+  block(x, y, width, height, font, rotation, zoomX, zoomY, data, space, alignment) {
+    //space、alignment是BLOCK的位置参数：只给alignment时自动补space=0（0=不调行距，是该参数的中性值），
+    //否则位置参数会把alignment当成space吃掉
+    const s = space === undefined && alignment !== undefined ? 0 : space
+    const opt = s === undefined ? '' : `,${s}`
+    const opt2 = alignment === undefined ? '' : `,${alignment}`
+    this.addCommand(`BLOCK ${x},${y},${width},${height},"${font}",${rotation},${zoomX},${zoomY}${opt}${opt2},"${data}"`)
     return this
   };
 
@@ -315,12 +387,13 @@ class TSPL {
    * @param {int} level 选择 QRCODE 纠错等级
    * @param {int} width 二维码宽度 1-10
    * @param {string} mode 手动 A /自动编码 M
-   * @param {string} data 二维码内容
+   * @param {string} data 二维码内容（包含 " 等特殊符号需要转义，见 TSPL.escape()；库不做转义）
+   * @param {string} [model] 二维码版本：M1(默认，原始版本) / M2(扩大版本，大部分智能手机支持)，不传就不拼进命令
+   * @param {string} [mask] 掩膜：S0~S8（默认S7），不传就不拼进命令；不能单独传，要和model一起传
    * @returns {TSPL}
    */
-  qrcode(x, y, level, width, mode, data) {
-    this.addCommand(`QRCODE ${x},${y},${level},${width},${mode},0,"${data}"`)
-    return this
+  qrcode(x, y, level, width, mode, data, model, mask) {
+    return this.qrcodeRotation(x, y, level, width, mode, 0, data, model, mask)
   };
 
   /**
@@ -331,11 +404,19 @@ class TSPL {
    * @param {int} width 二维码宽度 1-10
    * @param {string} mode 手动 A /自动编码 M
    * @param {int} rotation 旋转角度（顺时针方向）
-   * @param {string} data 二维码内容
+   * @param {string} data 二维码内容（包含 " 等特殊符号需要转义，见 TSPL.escape()；库不做转义）
+   * @param {string} [model] 二维码版本：M1(默认，原始版本) / M2(扩大版本，大部分智能手机支持)，不传就不拼进命令
+   * @param {string} [mask] 掩膜：S0~S8（默认S7），不传就不拼进命令；不能单独传，要和model一起传
    * @returns {TSPL}
    */
-  qrcodeRotation(x, y, level, width, mode, rotation, data) {
-    this.addCommand(`QRCODE ${x},${y},${level},${width},${mode},${rotation},"${data}"`)
+  qrcodeRotation(x, y, level, width, mode, rotation, data, model, mask) {
+    //model、mask是可选参数，在命令里位于"content"之前，不传就不拼进命令
+    //只给mask不给model时，命令里model那一位只能空着（QRCODE ...,,S5,"x"），手册没写这种写法，所以报错而不是硬拼
+    if (model === undefined && mask !== undefined) {
+      throw new Error('QRCODE 的 mask 不能单独传，要和 model 一起传')
+    }
+    const opt = model === undefined ? '' : `${model},${mask === undefined ? '' : `${mask},`}`
+    this.addCommand(`QRCODE ${x},${y},${level},${width},${mode},${rotation},${opt}"${data}"`)
     return this
   };
 
@@ -345,15 +426,15 @@ class TSPL {
    * @param {int} y 左上角垂直坐标起点，以点（dot）表示
    * @param {string} type 条码类型
    * @param {int} height 条形码高度，以点（dot）表示
-   * @param {int} readable 0 表示人眼不可识，1 表示人眼可识
+   * @param {int} readable 码文是否显示：0不显示 / 1显示；2居中、3右对齐是较新固件才有的（2009版TSPL2手册只定义了0和1，2014版手册才扩展成4个值）
    * @param {int} narrow 窄 bar 宽度，以点（dot）表示
    * @param {int} wide 宽 bar 宽度，以点（dot）表示
-   * @param {string} data 条码内容
+   * @param {string} data 条码内容（包含 " 等特殊符号需要转义，见 TSPL.escape()；库不做转义）
+   * @param {int} [alignment] 码文对齐：0默认(居左)/1居左/2居中/3居右，不传就不拼进命令；和 readable 的2/3一样，2009版手册的语法里还没有这个参数
    * @returns {TSPL}
    */
-  barcode(x, y, type, height, readable, narrow, wide, data) {
-    this.addCommand(`BARCODE ${x},${y},"${type}",${height},${readable},0,${narrow},${wide},"${data}"`)
-    return this
+  barcode(x, y, type, height, readable, narrow, wide, data, alignment) {
+    return this.barcodeRotation(x, y, type, height, readable, 0, narrow, wide, data, alignment)
   };
 
   /**
@@ -362,36 +443,31 @@ class TSPL {
    * @param {int} y 左上角垂直坐标起点，以点（dot）表示
    * @param {string} type 条码类型
    * @param {int} height 条形码高度，以点（dot）表示
-   * @param {int} readable 0 表示人眼不可识，1 表示人眼可识
-   * @param rotation 旋转角度，顺时针方向
+   * @param {int} readable 码文是否显示：0不显示 / 1显示；2居中、3右对齐是较新固件才有的（2009版TSPL2手册只定义了0和1，2014版手册才扩展成4个值）
+   * @param {int} rotation 旋转角度，顺时针方向
    * @param {int} narrow 窄 bar 宽度，以点（dot）表示
    * @param {int} wide 宽 bar 宽度，以点（dot）表示
-   * @param {string} type 条码类型
-   * @param {string} data 条码内容
+   * @param {string} data 条码内容（包含 " 等特殊符号需要转义，见 TSPL.escape()；库不做转义）
+   * @param {int} [alignment] 码文对齐：0默认(居左)/1居左/2居中/3居右，不传就不拼进命令；和 readable 的2/3一样，2009版手册的语法里还没有这个参数
    * @returns {TSPL}
    */
-  barcodeRotation(x, y, type, height, readable, rotation, narrow, wide, data) {
-    this.addCommand(`BARCODE ${x},${y},${type},${height},${readable},${rotation},${narrow},${wide},"${data}"`)
+  barcodeRotation(x, y, type, height, readable, rotation, narrow, wide, data, alignment) {
+    //alignment是可选参数，在命令里位于"content"之前，不传就不拼进命令
+    const opt = alignment === undefined ? '' : `${alignment},`
+    this.addCommand(`BARCODE ${x},${y},"${type}",${height},${readable},${rotation},${narrow},${wide},${opt}"${data}"`)
     return this
   };
 
   /**
-   * 打印页面
+   * 打印页面（对应 PRINT m[,n]）
+   * 例：标签内容含序列号 @1 时，print(3,2) → 0001、0001、0002、0002、0003、0003
+   * @param {int} [m] 打印几个序号（没设序列号时序号不变，即打印几张）：print(3) → 0001、0002、0003；不传按1个
+   * @param {int} [n] 每个序号重复打印几张：print(3,2) 就是每个序号2张；不传就不拼进命令
    * @returns {TSPL}
    */
-  print() {
-    this.addCommand(`PRINT 1,1`)
-    return this
-  };
-
-  /**
-   * 打印页面（多份）
-   * @param {int} m 指定打印的份数
-   * @param {int} n 每张标签需重复打印的张数
-   * @returns {TSPL}
-   */
-  printMulti(m, n) {
-    this.addCommand(`PRINT ${m},${n}`)
+  print(m = 1, n) {
+    const opt = n === undefined ? '' : `,${n}`
+    this.addCommand(`PRINT ${m}${opt}`)
     return this
   }
 
@@ -435,105 +511,71 @@ class TSPL {
    * @returns {TSPL}
    */
   bitmap(x, y, mode, res) {
+    // 每行字节数 = ceil(宽度 / 8)，BITMAP 头里的宽度单位是字节，不是点
     const width = parseInt((res.width + 7) / 8 * 8 / 8)
     const height = res.height
     const w = res.width
-    const pointList = []
     const resultData = []
     this.addCommandWithoutEnter(`BITMAP ${x},${y},${width},${height},${mode},`)
 
-    //for循环顺序不要错了，外层遍历高度，内层遍历宽度，因为横向每8个像素点组成一个字节
+    //for循环顺序不要错了，外层遍历高度，内层遍历该行的字节，因为横向每8个像素点组成一个字节
+    //每行都要按 width*8 位重新对齐：宽度不是8的倍数时，行尾多出的补位像素不打印(1)。
+    //否则比特位会在行与行之间累积错位(图像斜切)，且总字节数少于头部声明的 width*height，
+    //打印机就会把后面的命令当成图像数据吃掉
     for (let y = 0; y < height; y++) {
-      for (let x = 0; x < w; x++) {
-        let r = res.data[(y * w + x) * 4];
-        let g = res.data[(y * w + x) * 4 + 1];
-        let b = res.data[(y * w + x) * 4 + 2];
-        // 像素灰度值
-        let grayColor = r * 0.299 + g * 0.587 + b * 0.114
-        //灰度值大于128位
-        //1不打印, 0打印 （参考：佳博标签打印机编程手册tspl）
-        if (grayColor > 128) {
-          pointList.push(1)
-        } else {
-          pointList.push(0)
+      for (let i = 0; i < width; i++) {
+        let p = 0
+        for (let j = 0; j < 8; j++) {
+          const x = i * 8 + j
+          //1不打印, 0打印 （参考：佳博标签打印机编程手册tspl）
+          let bit = 1
+          if (x < w) {
+            const index = (y * w + x) * 4
+            // 透明像素按白纸合成：c = c*a + 255*(1-a)。a=255（不透明）时结果不变，
+            // a=0（全透明）合成后为白（不打印）；否则PNG的透明背景会被当成黑色整块印出来
+            const alpha = res.data[index + 3] / 255
+            const r = res.data[index] * alpha + 255 * (1 - alpha)
+            const g = res.data[index + 1] * alpha + 255 * (1 - alpha)
+            const b = res.data[index + 2] * alpha + 255 * (1 - alpha)
+            // 像素灰度值，灰度值大于128不打印
+            const grayColor = r * 0.299 + g * 0.587 + b * 0.114
+            bit = grayColor > 128 ? 1 : 0
+          }
+          p = (p << 1) | bit
         }
+        resultData.push(p)
       }
-    }
-    for (let i = 0; i < pointList.length; i += 8) {
-      let p = pointList[i] * 128
-          + pointList[i + 1] * 64
-          + pointList[i + 2] * 32
-          + pointList[i + 3] * 16
-          + pointList[i + 4] * 8
-          + pointList[i + 5] * 4
-          + pointList[i + 6] * 2
-          + pointList[i + 7]
-      resultData.push(p)
     }
     for (let i = 0; i < resultData.length; ++i) {
-      this.command.push(this.intToByte(resultData[i]))
+      this.command.push(resultData[i])
     }
     return this;
   }
 
   /**
-   * 绘制位图（从画布中获取图像信息）
-   * @param {int} x 位图左上角 X 坐标
-   * @param {int} y 位图左上角 Y 坐标
-   * @param {int} mode 位图绘制模式 0-OVERWRITE 1-OR 2-XOR
-   * @param {object} res
-   * @returns {TSPL}
-   */
-  bitmap2(x, y, mode, res) {
-    const width = parseInt((res.width + 7) / 8 * 8 / 8)
-    const height = res.height
-    const w = res.width
-    this.addCommandWithoutEnter(`BITMAP ${x},${y},${width},${height},${mode},`)
-    const bits = new Uint8Array(height * width);
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < w; x++) {
-        let r = res.data[(y * w + x) * 4];
-        let g = res.data[(y * w + x) * 4 + 1];
-        let b = res.data[(y * w + x) * 4 + 2];
-        let a = res.data[(y * w + x) * 4 + 3]
-        const color = ((a & 0xFF) << 24) | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | ((b & 0xFF) <<
-            0);
-        if ((color & 0xFF) > 128) {
-          bits[parseInt(y * width + x / 8)] |= (0x80 >> (x % 8));
-        }
-      }
-    }
-    for (let i = 0; i < bits.length; i++) {
-      this.command.push(this.intToByte(bits[i]))
-    }
-    return this;
-  }
-
-  /**
-   * int转byte
+   * int转有符号byte（当前未被调用，保留作参考）
+   * 只有把命令数组直接交给原生安卓插件时才需要：那种接口要传 byte[]，取值必须是
+   * java 的有符号字节 -128~127。本项目走的是 batchWrite -> ArrayBuffer，交给
+   * uni.writeBLECharacteristicValue 的始终是无符号字节，所以位图数据直接 push 0-255 即可。
    * @param {int} i
-   * @returns {*|number}
+   * @returns {number}
    */
   intToByte(i) {
-    // 此处关键 -- android是java平台 byte数值范围是 [-128, 127]
-    // 因为java平台的byte类型是有符号的 最高位表示符号，所以数值范围固定
-    // 而图片计算出来的是数值是 0 -255 属于int类型
-    // 所以把int 转换成byte类型
-    //#ifdef APP-PLUS
-    let b = i & 0xFF;
-    let c = 0;
-    if (b >= 128) {
-      c = b % 128;
-      c = -1 * (128 - c);
-    } else {
-      c = b;
-    }
-    return c
-    //#endif
-    // 而微信小程序不需要，因为小程序api接收的是 无符号8位
-    //#ifdef MP-WEIXIN
-    return i
-    //#endif
+    const b = i & 0xFF
+    return b >= 128 ? b - 256 : b
+  }
+
+  /**
+   * 转义要打印的内容（静态方法，配合 text/qrcode/barcode 的 data 参数使用）
+   * 手册规定：字符串里的双引号要写成 \["]；内容里也不能有裸的CR/LF，它会被当成命令结束符，
+   * 把一条命令切成两条，要打印它们得转义：CR写\[R]、LF写\[L]。
+   * \[L]是“V5.10EZ”后的写法，如果机器固件较旧、换行打不出来时改成\[A]试下。
+   * 注意： 只对原始内容调用一次，对已经转义过的内容再调用会二次转义；
+   * @param {string} data 要打印的原始内容
+   * @returns {string}
+   */
+  static escape(data) {
+    return `${data}`.replace(/"/g, '\\["]').replace(/\r/g, '\\[R]').replace(/\n/g, '\\[L]')
   }
 }
 
