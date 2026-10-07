@@ -6,11 +6,9 @@ class CPCL {
    * @param {string} content
    * @returns {CPCL}
    */
-  addCommand(content) {
-    const code = encode(`${content}\r\n`, 'gb18030')
-    for (let i = 0; i < code.length; ++i) {
-      this.command.push(code[i])
-    }
+  raw(content) {
+    //encode 返回的就是 Uint8Array 系的字节，直接存成一块，getData() 时再一次性拼
+    this.chunks.push(encode(`${content}\r\n`, 'gb18030'))
     this.rawCommand += `${content}\r\n`
     return this
   }
@@ -20,11 +18,8 @@ class CPCL {
    * @param {string} content
    * @returns {CPCL}
    */
-  addCommandWithoutEnter(content) {
-    const code = encode(content, 'gb18030')
-    for (let i = 0; i < code.length; ++i) {
-      this.command.push(code[i])
-    }
+  rawWithoutEnter(content) {
+    this.chunks.push(encode(content, 'gb18030'))
     this.rawCommand += content
     return this
   }
@@ -39,9 +34,9 @@ class CPCL {
    * @returns {CPCL}
    */
   init(offset, horizontalDpi, verticalDpi, height, qty) {
-    this.command = []
+    this.chunks = []
     this.rawCommand = ''
-    this.addCommand(`! ${offset} ${horizontalDpi} ${verticalDpi} ${height} ${qty}`)
+    this.raw(`! ${offset} ${horizontalDpi} ${verticalDpi} ${height} ${qty}`)
     return this
   }
 
@@ -51,7 +46,7 @@ class CPCL {
    * @returns {CPCL}
    */
   pageWidth(width) {
-    this.addCommand(`PW ${width}`)
+    this.raw(`PW ${width}`)
     return this
   }
 
@@ -60,7 +55,7 @@ class CPCL {
    * @returns {CPCL}
    */
   left() {
-    this.addCommand(`LEFT`)
+    this.raw(`LEFT`)
     return this
   }
 
@@ -69,7 +64,7 @@ class CPCL {
    * @returns {CPCL}
    */
   right() {
-    this.addCommand(`RIGHT`)
+    this.raw(`RIGHT`)
     return this
   }
 
@@ -78,7 +73,7 @@ class CPCL {
    * @returns {CPCL}
    */
   center() {
-    this.addCommand(`CENTER`)
+    this.raw(`CENTER`)
     return this
   }
 
@@ -92,7 +87,7 @@ class CPCL {
    * @returns {CPCL}
    */
   text(font, size, x, y, data) {
-    this.addCommand(`T ${font} ${size} ${x} ${y} ${data}`)
+    this.raw(`T ${font} ${size} ${x} ${y} ${data}`)
     return this
   }
 
@@ -106,7 +101,7 @@ class CPCL {
    * @returns {CPCL}
    */
   vText(font, size, x, y, data) {
-    this.addCommand(`VT ${font} ${size} ${x} ${y} ${data}`)
+    this.raw(`VT ${font} ${size} ${x} ${y} ${data}`)
     return this
   }
 
@@ -117,7 +112,7 @@ class CPCL {
    * @returns {CPCL}
    */
   setMag(w, h) {
-    this.addCommand(`SETMAG ${w} ${h}`)
+    this.raw(`SETMAG ${w} ${h}`)
     return this
   }
 
@@ -127,7 +122,7 @@ class CPCL {
    * @returns {CPCL}
    */
   setBold(value) {
-    this.addCommand(`SETBOLD ${value}`)
+    this.raw(`SETBOLD ${value}`)
     return this
   }
 
@@ -141,7 +136,7 @@ class CPCL {
    * @returns {CPCL}
    */
   box(startX, startY, endX, endY, width) {
-    this.addCommand(`BOX ${startX} ${startY} ${endX} ${endY} ${width}`)
+    this.raw(`BOX ${startX} ${startY} ${endX} ${endY} ${width}`)
     return this
   }
 
@@ -155,7 +150,7 @@ class CPCL {
    * @returns {CPCL}
    */
   line(startX, startY, endX, endY, width) {
-    this.addCommand(`L ${startX} ${startY} ${endX} ${endY} ${width}`)
+    this.raw(`L ${startX} ${startY} ${endX} ${endY} ${width}`)
     return this
   }
 
@@ -164,7 +159,7 @@ class CPCL {
    * @returns {CPCL}
    */
   barcodeTextOFF() {
-    this.addCommand(`BT OFF`)
+    this.raw(`BT OFF`)
     return this
   }
 
@@ -176,7 +171,7 @@ class CPCL {
    * @returns {CPCL}
    */
   barcodeText(fontNumber, fontSize, offset) {
-    this.addCommand(`BT ${fontNumber} ${fontSize} ${offset}`)
+    this.raw(`BT ${fontNumber} ${fontSize} ${offset}`)
     return this
   }
 
@@ -192,7 +187,7 @@ class CPCL {
    * @returns {CPCL}
    */
   barcode(type, width, ratio, height, x, y, data) {
-    this.addCommand(`B ${type} ${width} ${ratio} ${height} ${x} ${y} ${data}`)
+    this.raw(`B ${type} ${width} ${ratio} ${height} ${x} ${y} ${data}`)
     return this
   }
 
@@ -208,7 +203,7 @@ class CPCL {
    * @returns {CPCL}
    */
   vBarcode(type, width, ratio, height, x, y, data) {
-    this.addCommand(`VB ${type} ${width} ${ratio} ${height} ${x} ${y} ${data}`)
+    this.raw(`VB ${type} ${width} ${ratio} ${height} ${x} ${y} ${data}`)
     return this
   }
 
@@ -223,9 +218,9 @@ class CPCL {
    * @returns {CPCL}
    */
   qrcode(x, y, m, n, level, data) {
-    this.addCommand(`B QR ${x} ${y} M ${m} N ${n}`)
-        .addCommand(`${level}A,${data}`)
-        .addCommand(`ENDQR`)
+    this.raw(`B QR ${x} ${y} M ${m} N ${n}`)
+        .raw(`${level}A,${data}`)
+        .raw(`ENDQR`)
     return this
   }
 
@@ -240,9 +235,9 @@ class CPCL {
    * @returns {CPCL}
    */
   vQrcode(x, y, m, n, level, data) {
-    this.addCommand(`VB QR ${x} ${y} M ${m} N ${n}`)
-        .addCommand(`${level}A,${data}`)
-        .addCommand(`ENDQR`)
+    this.raw(`VB QR ${x} ${y} M ${m} N ${n}`)
+        .raw(`${level}A,${data}`)
+        .raw(`ENDQR`)
     return this
   }
 
@@ -252,7 +247,7 @@ class CPCL {
    * @returns {CPCL}
    */
   speed(level) {
-    this.addCommand(`SPEED ${level}`)
+    this.raw(`SPEED ${level}`)
     return this
   }
 
@@ -262,7 +257,7 @@ class CPCL {
    * @returns {CPCL}
    */
   beep(length) {
-    this.addCommand(`BEEP ${length}`)
+    this.raw(`BEEP ${length}`)
     return this
   }
 
@@ -276,7 +271,7 @@ class CPCL {
    * @returns {CPCL}
    */
   cg(width, height, x, y, data) {
-    this.addCommand(`CG ${width} ${height} ${x} ${y} ${data}`)
+    this.raw(`CG ${width} ${height} ${x} ${y} ${data}`)
     return this
   }
 
@@ -290,7 +285,7 @@ class CPCL {
    * @returns {CPCL}
    */
   eg(width, height, x, y, data) {
-    this.addCommand(`EG ${width} ${height} ${x} ${y} ${data}`)
+    this.raw(`EG ${width} ${height} ${x} ${y} ${data}`)
     return this
   }
 
@@ -302,12 +297,21 @@ class CPCL {
    * @returns {CPCL}
    */
   bitmap(x, y, res) {
-    // 每行字节数 = ceil(宽度 / 8)，CG 头里的宽度单位是字节，不是点
-    const width = parseInt((res.width + 7) / 8 * 8 / 8)
-    const height = res.height
     const w = res.width
-    const resultData = []
-    this.addCommandWithoutEnter(`CG ${width} ${height} ${x} ${y}`)
+    const height = res.height
+    //宽高非法时：头里会拼出 CG NaN undefined 0 0 这种畸形指令、图像数据长度为 0，
+    //打印机便把后面的指令当成图像数据吃掉；数据长度不对时则会越界读成 undefined、灰度算出 NaN。
+    //两种都是静默出错（要么印黑要么丢指令），所以把宽高和像素数据一起校验掉
+    if (!(Number.isInteger(w) && Number.isInteger(height) && w > 0 && height > 0
+        && res.data && res.data.length === w * height * 4)) {
+      throw new Error(`bitmap() 拿到的 res 不合法：width=${w} height=${height} data.length=${res.data && res.data.length}`)
+    }
+    // 每行字节数 = ceil(宽度 / 8)，CG 头里的宽度单位是字节，不是点
+    const width = Math.ceil(w / 8)
+    //总字节数正好是 每行字节数 × 高度，直接开定长数组，不用普通数组一点点堆
+    const bits = new Uint8Array(width * height)
+    let n = 0
+    this.rawWithoutEnter(`CG ${width} ${height} ${x} ${y}`)
     //for循环顺序不要错了，外层遍历高度，内层遍历该行的字节，因为横向每8个像素点组成一个字节
     //每行都要按 width*8 位重新对齐：宽度不是8的倍数时，行尾多出的补位像素不打印(1)。
     //否则比特位会在行与行之间累积错位(图像斜切)，且总字节数少于头部声明的 width*height，
@@ -333,14 +337,11 @@ class CPCL {
           }
           p = (p << 1) | bit
         }
-        resultData.push(p)
+        //与tspl不一样，cpcl打印的图像是相反的，所以要用~来转回来
+        bits[n++] = ~p & 0xff
       }
     }
-    for (let i = 0; i < resultData.length; ++i) {
-      //与tspl不一样，cpcl打印的图像是相反的，所以要用~来转回来
-      const invertedByte = ~resultData[i] & 0xff;
-      this.command.push(invertedByte)
-    }
+    this.chunks.push(bits)
     return this;
   }
 
@@ -349,21 +350,28 @@ class CPCL {
    * @returns {CPCL}
    */
   print() {
-    this.addCommand("PRINT")
+    this.raw("PRINT")
     return this
   }
 
   /**
-   * 获取命令信息
-   * @returns {[]}
+   * 获取打印数据
+   * @returns {Uint8Array} 要发出去的字节，直接交给蓝牙/串口写
    */
   getData() {
-    return this.command
+    const total = this.chunks.reduce((n, c) => n + c.length, 0)
+    const out = new Uint8Array(total)
+    let at = 0
+    for (const c of this.chunks) {
+      out.set(c, at)
+      at += c.length
+    }
+    return out
   }
 
   /**
-   * 获取原始命令信息
-   * @returns {[]}
+   * 获取原始命令（纯文本，仅供调试查看；位图数据不在这里面）
+   * @returns {string}
    */
   getRawData() {
     return this.rawCommand

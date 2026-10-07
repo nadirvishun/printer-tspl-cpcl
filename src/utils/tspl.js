@@ -2,11 +2,19 @@ import {encode} from 'iconv-lite'
 
 class TSPL {
   /**
+   * 构造时就把缓冲区备好，这样忘了调 init() 也不会崩；init() 仍然保留（重置用）
+   */
+  constructor() {
+    this.chunks = []
+    this.rawCommand = ''
+  }
+
+  /**
    * 初始化
    * @returns {TSPL}
    */
   init() {
-    this.command = []
+    this.chunks = []
     this.rawCommand = ''
     return this
   }
@@ -16,11 +24,9 @@ class TSPL {
    * @param {string} content
    * @returns {TSPL}
    */
-  addCommand(content) {
-    const code = encode(`${content}\r\n`, 'gb18030')
-    for (let i = 0; i < code.length; ++i) {
-      this.command.push(code[i])
-    }
+  raw(content) {
+    //encode 返回的就是 Uint8Array 系的字节，直接存成一块，getData() 时再一次性拼
+    this.chunks.push(encode(`${content}\r\n`, 'gb18030'))
     this.rawCommand += `${content}\r\n`
     return this
   }
@@ -30,11 +36,8 @@ class TSPL {
    * @param {string} content
    * @returns {TSPL}
    */
-  addCommandWithoutEnter(content) {
-    const code = encode(content, 'gb18030')
-    for (let i = 0; i < code.length; ++i) {
-      this.command.push(code[i])
-    }
+  rawWithoutEnter(content) {
+    this.chunks.push(encode(content, 'gb18030'))
     this.rawCommand += content
     return this
   }
@@ -46,7 +49,7 @@ class TSPL {
    * @returns {TSPL}
    */
   size(width, height) {
-    this.addCommand(`SIZE ${width} mm,${height} mm`)
+    this.raw(`SIZE ${width} mm,${height} mm`)
     return this
   };
 
@@ -57,7 +60,7 @@ class TSPL {
    * @returns {TSPL}
    */
   sizeInch(width, height) {
-    this.addCommand(`SIZE ${width},${height}`)
+    this.raw(`SIZE ${width},${height}`)
     return this
   };
 
@@ -67,7 +70,7 @@ class TSPL {
    * @returns {TSPL}
    */
   speed(level) {
-    this.addCommand(`SPEED ${level}`)
+    this.raw(`SPEED ${level}`)
     return this
   };
 
@@ -77,7 +80,7 @@ class TSPL {
    * @returns {TSPL}
    */
   density(level) {
-    this.addCommand(`DENSITY ${level}`)
+    this.raw(`DENSITY ${level}`)
     return this
   };
 
@@ -87,7 +90,7 @@ class TSPL {
    * @returns {TSPL}
    */
   gap(length) {
-    this.addCommand(`GAP ${length} mm,0 mm`)
+    this.raw(`GAP ${length} mm,0 mm`)
     return this
   };
 
@@ -97,7 +100,7 @@ class TSPL {
    * @returns {TSPL}
    */
   gapInch(length) {
-    this.addCommand(`GAP ${length},0`)
+    this.raw(`GAP ${length},0`)
     return this
   };
 
@@ -107,7 +110,7 @@ class TSPL {
    * @returns {TSPL}
    */
   country(charset) {
-    this.addCommand(`COUNTRY ${charset}`)
+    this.raw(`COUNTRY ${charset}`)
     return this
   };
 
@@ -117,7 +120,7 @@ class TSPL {
    * @returns {TSPL}
    */
   codepage(codepage) {
-    this.addCommand(`CODEPAGE ${codepage}`)
+    this.raw(`CODEPAGE ${codepage}`)
     return this
   }
 
@@ -126,7 +129,7 @@ class TSPL {
    * @returns {TSPL}
    */
   cls() {
-    this.addCommand(`CLS`)
+    this.raw(`CLS`)
     return this
   };
 
@@ -138,7 +141,7 @@ class TSPL {
    * @returns {TSPL}
    */
   feed(length) {
-    this.addCommand(`FEED ${length}`)
+    this.raw(`FEED ${length}`)
     return this
   };
 
@@ -150,7 +153,7 @@ class TSPL {
    * @returns {TSPL}
    */
   backFeed(length) {
-    this.addCommand(`BACKFEED ${length}`)
+    this.raw(`BACKFEED ${length}`)
     return this
   }
 
@@ -164,7 +167,7 @@ class TSPL {
   direction(n, m) {
     //m是可选参数，不传就不拼进命令，不替调用方补默认值
     const opt = m === undefined ? '' : `,${m}`
-    this.addCommand(`DIRECTION ${n}${opt}`)
+    this.raw(`DIRECTION ${n}${opt}`)
     return this
   };
 
@@ -175,7 +178,7 @@ class TSPL {
    * @returns {TSPL}
    */
   reference(x, y) {
-    this.addCommand(`REFERENCE ${x},${y}`)
+    this.raw(`REFERENCE ${x},${y}`)
     return this
   };
 
@@ -184,7 +187,7 @@ class TSPL {
    * @returns {TSPL}
    */
   formFeed() {
-    this.addCommand(`FORMFEED`)
+    this.raw(`FORMFEED`)
     return this
   };
 
@@ -194,7 +197,7 @@ class TSPL {
    * @returns {TSPL}
    */
   home() {
-    this.addCommand(`HOME`)
+    this.raw(`HOME`)
     return this
   };
 
@@ -205,7 +208,7 @@ class TSPL {
    * @returns {TSPL}
    */
   sound(level, interval) {
-    this.addCommand(`SOUND ${level},${interval}`)
+    this.raw(`SOUND ${level},${interval}`)
     return this
   };
 
@@ -225,7 +228,7 @@ class TSPL {
       throw new Error('LIMITFEED 的 minpaper 与 maxgap 必须成对传，或者都不传')
     }
     const range = hasRange ? `,${minpaper}${unit},${maxgap}${unit}` : ''
-    this.addCommand(`LIMITFEED ${n}${unit}${range}`)
+    this.raw(`LIMITFEED ${n}${unit}${range}`)
     return this
   };
 
@@ -272,7 +275,7 @@ class TSPL {
    * @returns {TSPL}
    */
   bar(x, y, width, height) {
-    this.addCommand(`BAR ${x},${y},${width},${height}`)
+    this.raw(`BAR ${x},${y},${width},${height}`)
     return this
   };
 
@@ -289,7 +292,7 @@ class TSPL {
   box(startX, startY, endX, endY, thickness, radius) {
     //radius是可选参数，不传就不拼进命令，不替调用方补默认值
     const opt = radius === undefined ? '' : `,${radius}`
-    this.addCommand(`BOX ${startX},${startY},${endX},${endY},${thickness}${opt}`)
+    this.raw(`BOX ${startX},${startY},${endX},${endY},${thickness}${opt}`)
     return this
   };
 
@@ -302,7 +305,7 @@ class TSPL {
    * @returns {TSPL}
    */
   erase(startX, startY, widthX, heightY) {
-    this.addCommand(`ERASE ${startX},${startY},${widthX},${heightY}`)
+    this.raw(`ERASE ${startX},${startY},${widthX},${heightY}`)
     return this
   };
 
@@ -315,7 +318,7 @@ class TSPL {
    * @returns {TSPL}
    */
   reverse(startX, startY, widthX, heightY) {
-    this.addCommand(`REVERSE ${startX},${startY},${widthX},${heightY}`)
+    this.raw(`REVERSE ${startX},${startY},${widthX},${heightY}`)
     return this
   };
 
@@ -324,9 +327,9 @@ class TSPL {
    * @param {int} x 文字 X 方向起始点坐标
    * @param {int} y 文字 Y 方向起始点坐标
    * @param {int|string} font 字体名称
-   * @param {int} zoomX X 方向放大倍率 1-10
-   * @param {int} zoomY Y 方向放大倍率 1-10
-   * @param {string} data 文字内容（包含 " 等特殊符号需要转义，见 TSPL.escape()；库不做转义）
+   * @param {number} zoomX X 方向放大倍率：点阵字体只能 1~10 的整数；TTF 字体不受此限制，且 V6.91EZ 之后支持小数
+   * @param {number} zoomY Y 方向放大倍率：同 zoomX
+   * @param {string} data 文字内容（包含 " 等特殊符号时需自己转义）
    * @param {int} [alignment] 对齐：0默认(居左)/1居左/2居中/3居右（V6.73EZ后才支持，不传就不拼进命令）
    * @returns {TSPL}
    */
@@ -340,16 +343,16 @@ class TSPL {
    * @param {int} y 文字 Y 方向起始点坐标
    * @param {int|string} font 字体名称
    * @param {int} rotation 文字旋转角度（顺时针方向）
-   * @param {int} zoomX X 方向放大倍率 1-10
-   * @param {int} zoomY Y 方向放大倍率 1-10
-   * @param {string} data 文字内容（包含 " 等特殊符号需要转义，见 TSPL.escape()；库不做转义）
+   * @param {number} zoomX X 方向放大倍率：点阵字体只能 1~10 的整数；TTF 字体不受此限制，且 V6.91EZ 之后支持小数
+   * @param {number} zoomY Y 方向放大倍率：同 zoomX
+   * @param {string} data 文字内容（包含 " 等特殊符号时需自己转义）
    * @param {int} [alignment] 对齐：0默认(居左)/1居左/2居中/3居右（V6.73EZ后才支持，不传就不拼进命令）
    * @returns {TSPL}
    */
   textRotation(x, y, font, rotation, zoomX, zoomY, data, alignment) { //打印文字
     //alignment是可选的位置参数（在content之前），不传就不拼进命令
     const opt = alignment === undefined ? '' : `,${alignment}`
-    this.addCommand(`TEXT ${x},${y},"${font}",${rotation},${zoomX},${zoomY}${opt},"${data}"`)
+    this.raw(`TEXT ${x},${y},"${font}",${rotation},${zoomX},${zoomY}${opt},"${data}"`)
     return this
   };
 
@@ -363,9 +366,9 @@ class TSPL {
    * @param {int} height 段落高度，单位dot
    * @param {int|string} font 字体名称
    * @param {int} rotation 旋转角度（顺时针方向）
-   * @param {int} zoomX X方向放大倍率1-10
-   * @param {int} zoomY Y方向放大倍率1-10
-   * @param {string} data 段落内容（包含 " 等特殊符号需要转义，见 TSPL.escape()；库不做转义）
+   * @param {number} zoomX X方向放大倍率：点阵字体只能 1~10 的整数；TTF 字体不受此限制，且 V6.91EZ 之后支持小数
+   * @param {number} zoomY Y方向放大倍率：同 zoomX
+   * @param {string} data 段落内容（包含 " 等特殊符号时需自己转义）
    * @param {int} [space] 在每一行中间添加或删除空格，单位dot（行距微调）
    * @param {int} [alignment] 对齐：0默认(居左)/1居左/2居中/3居右（V6.73EZ后才支持，与text的该参数一样；只给这个时会自动补 space=0）
    * @returns {TSPL}
@@ -376,7 +379,7 @@ class TSPL {
     const s = space === undefined && alignment !== undefined ? 0 : space
     const opt = s === undefined ? '' : `,${s}`
     const opt2 = alignment === undefined ? '' : `,${alignment}`
-    this.addCommand(`BLOCK ${x},${y},${width},${height},"${font}",${rotation},${zoomX},${zoomY}${opt}${opt2},"${data}"`)
+    this.raw(`BLOCK ${x},${y},${width},${height},"${font}",${rotation},${zoomX},${zoomY}${opt}${opt2},"${data}"`)
     return this
   };
 
@@ -387,7 +390,7 @@ class TSPL {
    * @param {int} level 选择 QRCODE 纠错等级
    * @param {int} width 二维码宽度 1-10
    * @param {string} mode 手动 A /自动编码 M
-   * @param {string} data 二维码内容（包含 " 等特殊符号需要转义，见 TSPL.escape()；库不做转义）
+   * @param {string} data 二维码内容（包含 " 等特殊符号时需自己转义）
    * @param {string} [model] 二维码版本：M1(默认，原始版本) / M2(扩大版本，大部分智能手机支持)，不传就不拼进命令
    * @param {string} [mask] 掩膜：S0~S8（默认S7），不传就不拼进命令；不能单独传，要和model一起传
    * @returns {TSPL}
@@ -404,7 +407,7 @@ class TSPL {
    * @param {int} width 二维码宽度 1-10
    * @param {string} mode 手动 A /自动编码 M
    * @param {int} rotation 旋转角度（顺时针方向）
-   * @param {string} data 二维码内容（包含 " 等特殊符号需要转义，见 TSPL.escape()；库不做转义）
+   * @param {string} data 二维码内容（包含 " 等特殊符号时需自己转义）
    * @param {string} [model] 二维码版本：M1(默认，原始版本) / M2(扩大版本，大部分智能手机支持)，不传就不拼进命令
    * @param {string} [mask] 掩膜：S0~S8（默认S7），不传就不拼进命令；不能单独传，要和model一起传
    * @returns {TSPL}
@@ -416,7 +419,7 @@ class TSPL {
       throw new Error('QRCODE 的 mask 不能单独传，要和 model 一起传')
     }
     const opt = model === undefined ? '' : `${model},${mask === undefined ? '' : `${mask},`}`
-    this.addCommand(`QRCODE ${x},${y},${level},${width},${mode},${rotation},${opt}"${data}"`)
+    this.raw(`QRCODE ${x},${y},${level},${width},${mode},${rotation},${opt}"${data}"`)
     return this
   };
 
@@ -429,7 +432,7 @@ class TSPL {
    * @param {int} readable 码文是否显示：0不显示 / 1显示；2居中、3右对齐是较新固件才有的（2009版TSPL2手册只定义了0和1，2014版手册才扩展成4个值）
    * @param {int} narrow 窄 bar 宽度，以点（dot）表示
    * @param {int} wide 宽 bar 宽度，以点（dot）表示
-   * @param {string} data 条码内容（包含 " 等特殊符号需要转义，见 TSPL.escape()；库不做转义）
+   * @param {string} data 条码内容（包含 " 等特殊符号时需自己转义）
    * @param {int} [alignment] 码文对齐：0默认(居左)/1居左/2居中/3居右，不传就不拼进命令；和 readable 的2/3一样，2009版手册的语法里还没有这个参数
    * @returns {TSPL}
    */
@@ -447,14 +450,14 @@ class TSPL {
    * @param {int} rotation 旋转角度，顺时针方向
    * @param {int} narrow 窄 bar 宽度，以点（dot）表示
    * @param {int} wide 宽 bar 宽度，以点（dot）表示
-   * @param {string} data 条码内容（包含 " 等特殊符号需要转义，见 TSPL.escape()；库不做转义）
+   * @param {string} data 条码内容（包含 " 等特殊符号时需自己转义）
    * @param {int} [alignment] 码文对齐：0默认(居左)/1居左/2居中/3居右，不传就不拼进命令；和 readable 的2/3一样，2009版手册的语法里还没有这个参数
    * @returns {TSPL}
    */
   barcodeRotation(x, y, type, height, readable, rotation, narrow, wide, data, alignment) {
     //alignment是可选参数，在命令里位于"content"之前，不传就不拼进命令
     const opt = alignment === undefined ? '' : `${alignment},`
-    this.addCommand(`BARCODE ${x},${y},"${type}",${height},${readable},${rotation},${narrow},${wide},${opt}"${data}"`)
+    this.raw(`BARCODE ${x},${y},"${type}",${height},${readable},${rotation},${narrow},${wide},${opt}"${data}"`)
     return this
   };
 
@@ -467,20 +470,27 @@ class TSPL {
    */
   print(m = 1, n) {
     const opt = n === undefined ? '' : `,${n}`
-    this.addCommand(`PRINT ${m}${opt}`)
+    this.raw(`PRINT ${m}${opt}`)
     return this
   }
 
   /**
    * 获取打印数据
-   * @returns {[]}
+   * @returns {Uint8Array} 要发出去的字节，直接交给蓝牙/串口写
    */
   getData() {
-    return this.command
+    const total = this.chunks.reduce((n, c) => n + c.length, 0)
+    const out = new Uint8Array(total)
+    let at = 0
+    for (const c of this.chunks) {
+      out.set(c, at)
+      at += c.length
+    }
+    return out
   };
 
   /**
-   * 获取原始命令
+   * 获取原始命令（纯文本，仅供调试查看；位图数据不在这里面）
    * @returns {string}
    */
   getRawData() {
@@ -498,7 +508,7 @@ class TSPL {
    * @returns {TSPL}
    */
   bitmapOrigin(x, y, width, height, mode, data) {
-    this.addCommand(`BITMAP ${x},${y},${width},${height},${mode},${data}`)
+    this.raw(`BITMAP ${x},${y},${width},${height},${mode},${data}`)
     return this;
   }
 
@@ -511,12 +521,21 @@ class TSPL {
    * @returns {TSPL}
    */
   bitmap(x, y, mode, res) {
-    // 每行字节数 = ceil(宽度 / 8)，BITMAP 头里的宽度单位是字节，不是点
-    const width = parseInt((res.width + 7) / 8 * 8 / 8)
-    const height = res.height
     const w = res.width
-    const resultData = []
-    this.addCommandWithoutEnter(`BITMAP ${x},${y},${width},${height},${mode},`)
+    const height = res.height
+    //宽高非法时：头里会拼出 BITMAP 0,0,NaN,undefined,0, 这种畸形指令、图像数据长度为 0，
+    //打印机便把后面的指令当成图像数据吃掉；数据长度不对时则会越界读成 undefined、灰度算出 NaN。
+    //两种都是静默出错（要么印黑要么丢指令），所以把宽高和像素数据一起校验掉
+    if (!(Number.isInteger(w) && Number.isInteger(height) && w > 0 && height > 0
+        && res.data && res.data.length === w * height * 4)) {
+      throw new Error(`bitmap() 拿到的 res 不合法：width=${w} height=${height} data.length=${res.data && res.data.length}`)
+    }
+    // 每行字节数 = ceil(宽度 / 8)，BITMAP 头里的宽度单位是字节，不是点
+    const width = Math.ceil(w / 8)
+    //总字节数正好是 每行字节数 × 高度，直接开定长数组，不用普通数组一点点堆
+    const bits = new Uint8Array(width * height)
+    let n = 0
+    this.rawWithoutEnter(`BITMAP ${x},${y},${width},${height},${mode},`)
 
     //for循环顺序不要错了，外层遍历高度，内层遍历该行的字节，因为横向每8个像素点组成一个字节
     //每行都要按 width*8 位重新对齐：宽度不是8的倍数时，行尾多出的补位像素不打印(1)。
@@ -543,12 +562,10 @@ class TSPL {
           }
           p = (p << 1) | bit
         }
-        resultData.push(p)
+        bits[n++] = p
       }
     }
-    for (let i = 0; i < resultData.length; ++i) {
-      this.command.push(resultData[i])
-    }
+    this.chunks.push(bits)
     return this;
   }
 
@@ -563,19 +580,6 @@ class TSPL {
   intToByte(i) {
     const b = i & 0xFF
     return b >= 128 ? b - 256 : b
-  }
-
-  /**
-   * 转义要打印的内容（静态方法，配合 text/qrcode/barcode 的 data 参数使用）
-   * 手册规定：字符串里的双引号要写成 \["]；内容里也不能有裸的CR/LF，它会被当成命令结束符，
-   * 把一条命令切成两条，要打印它们得转义：CR写\[R]、LF写\[L]。
-   * \[L]是“V5.10EZ”后的写法，如果机器固件较旧、换行打不出来时改成\[A]试下。
-   * 注意： 只对原始内容调用一次，对已经转义过的内容再调用会二次转义；
-   * @param {string} data 要打印的原始内容
-   * @returns {string}
-   */
-  static escape(data) {
-    return `${data}`.replace(/"/g, '\\["]').replace(/\r/g, '\\[R]').replace(/\n/g, '\\[L]')
   }
 }
 

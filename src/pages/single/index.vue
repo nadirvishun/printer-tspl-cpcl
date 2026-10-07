@@ -119,7 +119,7 @@ async function tsplPrint() {
       .print()
   const sendData = command.getData();
   console.log(command.getRawData())
-  await batchWrite(deviceId.value, commonConst.bluetoothConfig.serviceId, commonConst.bluetoothConfig.characterId, sendData);
+  await batchWrite(deviceId.value, commonConst.bluetoothConfig.serviceId, commonConst.bluetoothConfig.characterId, sendData, commonConst.writeConfig);
 }
 
 //cpcl打印
@@ -137,7 +137,7 @@ async function cpclPrint() {
       .print()
   const sendData = command.getData();
   console.log(command.getRawData())
-  await batchWrite(deviceId.value, commonConst.bluetoothConfig.serviceId, commonConst.bluetoothConfig.characterId, sendData);
+  await batchWrite(deviceId.value, commonConst.bluetoothConfig.serviceId, commonConst.bluetoothConfig.characterId, sendData, commonConst.writeConfig);
 }
 </script>
 

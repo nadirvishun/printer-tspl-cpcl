@@ -63,7 +63,7 @@ export function discovery(advertServiceId) {
         console.error("开始搜索成功：", err)
         uni.showToast({
           title: "开启搜索失败，请重试",
-          icon: "none",
+          icon: "none"
         })
         reject(err)
       }
@@ -241,28 +241,36 @@ export function offConnect(listener) {
  * @param {string} deviceId
  * @param {string} serviceId
  * @param {string} characteristicId
- * @param {Array} uint8Array
+ * @param {Uint8Array|number[]} uint8Array 要写入的字节（getData() 的返回值；普通字节数组也行）
+ * @param {object} [opt] 下面两个参数都跟具体打印机/系统有关，按自己的机器调（多传的字段会被忽略）
+ * @param {int} [opt.chunkSize] 每片字节数，默认 20
+ * @param {int} [opt.interval] 两片之间的延时(ms)，默认 100
  */
-export async function batchWrite(deviceId, serviceId, characteristicId, uint8Array) {
+export async function batchWrite(deviceId, serviceId, characteristicId, uint8Array, opt = {}) {
+  //两个默认值都跟打印机绑定，所以不写死在函数体里：
+  //  chunkSize=20：BLE 默认 ATT_MTU 是 23，减掉 3 字节 ATT 头（1 字节 opcode + 2 字节 handle）后
+  //                单次只能写 20 字节；用 setBLEMTU 协商过就能调大（Android 5.1+ 有效，iOS 不支持）
+  //  interval=50：保守间隔。特征值支持“带响应写入”时 success 回调本身已是确认，可以调小甚至给 0
+  const {chunkSize = 20, interval = 50} = opt
   return new Promise(async (resolve, reject) => {
-    let uint8Buf = Array.from(uint8Array);
-    const size = 20;
     try {
-      for (let i = 0; i < uint8Buf.length; i += size) {
-        let data = uint8Buf.slice(i, i + size)
-        const buffer = new ArrayBuffer(data.length);
-        // 批量复制数据（无需逐字节操作）
-        const newUint8 = new Uint8Array(buffer);
-        newUint8.set(data);
-        await write(deviceId, serviceId, characteristicId, buffer);
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        //逐片拷一份出来：别用 slice().buffer（Buffer 的 slice 是共享视图，.buffer 会是整个存储池；普通数组又没有 .buffer）
+        //也别整包归一化（位图那么大，白拷一份不划算）
+        const end = Math.min(i + chunkSize, uint8Array.length);
+        const chunk = new Uint8Array(end - i);
+        for (let j = i; j < end; j++) {
+          chunk[j - i] = uint8Array[j];
+        }
+        await write(deviceId, serviceId, characteristicId, chunk.buffer);
         //延时写入
-        await new Promise(r => setTimeout(r, 100));
+        if (interval > 0) await new Promise(r => setTimeout(r, interval));
       }
       //批量写入完成
       resolve(true)
     } catch (e) {
       //批量写入失败
-      reject(false)
+      reject(e)
     }
   })
 }
@@ -283,7 +291,7 @@ export function write(deviceId, serviceId, characteristicId, buffer) {
       characteristicId,
       value: buffer,
       success(res) {
-        console.log("写入成功连接：", res)
+        console.log("写入成功：", res)
         resolve(res)
       },
       fail(err) {
@@ -310,7 +318,7 @@ export async function startOpen(listener, advertServiceId) {
     } catch (e) {
       uni.showToast({
         title: "初始化失败，请打开手机的【蓝牙】开关和【定位】开关后重试",
-        icon: "none",
+        icon: "none"
       })
       return
     }
